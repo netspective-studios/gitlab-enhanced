@@ -20,12 +20,6 @@ export function initSQL(
   const glQPRView = sqr("gitlab_qualified_project_repos");
   const glQPRCloneFn = sqr("gitlab_qualified_project_repos_clone");
   const glQPRBareFn = sqr("gitlab_qualified_project_repos_bare");
-  const glQPRStateTable = sqr(
-    "gitlab_qualified_project_repos_state",
-  );
-  const glPrepQPRStateProc = sqr(
-    "gitlab_prepare_qualified_project_repos_state",
-  );
   const glNamespacesTable = glcsqr("namespaces");
 
   // deno-fmt-ignore

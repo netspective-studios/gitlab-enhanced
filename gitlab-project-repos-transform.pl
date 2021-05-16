@@ -49,7 +49,7 @@ if($rowNum eq 'csv-header' || $rowNum eq 'create-table-clauses') {
     if($includeContent) {
         push(@header, ['git_file_content_base64', 'text']);
     }
-    flock($outputFH, LOCK_EX) or die "Could not lock '$outputDest' or parallel op: $!" if $customDest && $isParallelOp;
+    flock($outputFH, LOCK_EX) or die "Could not lock '$outputDest' for parallel op: $!" if $customDest && $isParallelOp;
     if($rowNum eq 'create-table-clauses') {
         print $outputFH join(",\n    ", map { "$_->[0] $_->[1]" } @header) . "\n";
     } else {
@@ -86,6 +86,6 @@ while(<$branchesCmd>) {
     close($traverseCmd);
 }
 close($branchesCmd);
-flock($outputFH, LOCK_EX) or die "Could not lock '$outputDest' or parallel op: $!" if $customDest && $isParallelOp;
+flock($outputFH, LOCK_EX) or die "Could not lock '$outputDest' for parallel op: $!" if $customDest && $isParallelOp;
 print $outputFH join("\n", map { join(',', @$_) } @results) . "\n";
 close($outputFH) if $customDest;
