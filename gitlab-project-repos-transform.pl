@@ -56,7 +56,7 @@ if($rowNum eq 'csv-header' || $rowNum eq 'create-table-clauses' || $rowNum eq 'm
     } elsif($rowNum eq 'create-table-clauses') {
         print $outputFH join(",\n    ", map { "$_->[0] $_->[1]" } @header) . "\n";
     } elsif($rowNum eq 'markdown') {
-        print $outputFH join("\n* ", map { "\`$_->[0]\` ($_->[1]) - $_->[2]" } @header) . "\n";
+        print $outputFH join("\n", map { "| \`$_->[0]\` | $_->[1] | $_->[2] |" } @header) . "\n";
     } else { 
         die "$rowNum must be either a row number or 'csv-header', 'markdown' or 'create-table-clauses'."
     }
