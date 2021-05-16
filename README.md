@@ -18,7 +18,7 @@ just doctor
 
 ## One-time Setup
 
-Copy `.env.example` to `.env` and fill out GitLab production database information. The `.env` file is included in `.gitignore` and will not be git-tracked.
+Copy `.env.example` to `.env` and fill out GitLab production database information. The `.env` file is included in `.gitignore` and will not be git-tracked. All environment variables in `.env` will be availble, automatically, to the `just` targets documented below. 
 
 ## Creating SQL objects
 
