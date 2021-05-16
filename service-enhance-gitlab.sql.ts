@@ -55,7 +55,7 @@ export function initSQL(
                 namespace.qualified_name || '::' || project.name as qualified_project_name
           from ${glcsqr("projects")} project
           left join ${glQNView} namespace on project.namespace_id = namespace.id;
-      comment on view ${glQPView} is 'All registered GitLab projects with namespace-qualified names and logical paths';
+      comment on view ${glQPView} is 'All registered GitLab projects with namespace-qualified names and logical paths with hierarchy';
   
       create or replace view ${glQPRView} as
         select qp.*,
@@ -77,7 +77,8 @@ export function initSQL(
             from ${glQPRView} as repos;
       END
       $func$ LANGUAGE plpgsql;
-  
+      comment on function ${glQPRCloneFn}(text) is 'All registered GitLab projects with namespace-qualified names, logical paths, and relative Gitaly repository paths plus cloning paths on a given host';
+
       CREATE OR REPLACE FUNCTION ${glQPRCloneFn}(gitlab_host_name text, parent_namespace_id integer) RETURNS table(qpr ${glQPRView}, clone_ssh text, clone_https text) AS $func$
       BEGIN
         RETURN QUERY 
@@ -95,6 +96,7 @@ export function initSQL(
               select id from descendants);
       END
       $func$ LANGUAGE plpgsql;
+      comment on function ${glQPRCloneFn}(text, integer) is 'All registered GitLab projects under a specific namespace ID with namespace-qualified names, logical paths, and relative Gitaly repository paths plus cloning paths on a given host';
   
       CREATE OR REPLACE FUNCTION ${glQPRBareFn}(gitlab_bare_repos_home_on_disk text) RETURNS table(qpr ${glQPRView}, git_dir_abs_path text) AS $func$
       BEGIN
@@ -104,7 +106,8 @@ export function initSQL(
             from ${glQPRView} as repos;
       END
       $func$ LANGUAGE plpgsql;
-  
+      comment on function ${glQPRBareFn}(text) is 'All registered GitLab projects with namespace-qualified names, logical paths, and absolute paths to Gitaly bare Git repositories';
+
       CREATE OR REPLACE FUNCTION ${glQPRBareFn}(gitlab_bare_repos_home_on_disk text, parent_namespace_id integer) RETURNS table(qpr ${glQPRView}, git_dir_abs_path text) AS $func$
       BEGIN
         RETURN QUERY 
@@ -121,7 +124,8 @@ export function initSQL(
               select id from descendants);
       END
       $func$ LANGUAGE plpgsql;
-   
+      comment on function ${glQPRBareFn}(text, integer) is 'All registered GitLab projects under a specific namespace ID with namespace-qualified names, logical paths, and absolute paths to Gitaly bare Git repositories';
+
       -- qualified references observed in this template:
       -- ${state.qualifiedReferencesObserved.referencesObserved.map(r => `* ${r}`).join(`\n    -- `)}
   `;

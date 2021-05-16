@@ -29,7 +29,7 @@ db-deploy: _validate-context _validate-env
 interpolate-sql: _validate-context
     deno run -A --unstable sqlactl.ts interpolate --context={{context}} --verbose --git-status
 
-discover-project-repo-trees gitLabGroup options="extended-attrs,content" destFileName="project-repo-trees.csv": _validate-env _validate-repos-home
+discover-gitlab-project-repo-assets gitLabGroup options="extended-attrs,content" destFileName="gitlab-project-repo-assets.csv": _validate-env _validate-repos-home
     #!/usr/bin/env bash
     rm -f '{{destFileName}}'
     perl gitlab-project-repos-transform.pl csv-header '{{options}}' '{{destFileName}}'
@@ -39,7 +39,11 @@ discover-project-repo-trees gitLabGroup options="extended-attrs,content" destFil
           from $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.gitlab_qualified_project_repos_bare('{{gitLabReposHome}}', {{gitLabGroup}})
     REPOS_SQL
 
-persist-project-repo-trees tableName='gitlab_project_repo_assets' options="extended-attrs,content" repoTreesFileName="project-repo-trees.csv": _validate-env _validate-repos-home validate-project-repo-trees-csv
+validate-gitlab-project-repo-assets-csv fileName="gitlab-project-repo-assets.csv":
+    #!/usr/bin/env bash
+    datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
+
+persist-gitlab-project-repo-assets tableName='gitlab_project_repo_assets' options="extended-attrs,content" repoTreesFileName="gitlab-project-repo-assets.csv": _validate-env _validate-repos-home validate-gitlab-project-repo-assets-csv
     #!/usr/bin/env bash
     {{psqlCmd}} <<CREATE_TABLE_SQL
         DROP TABLE IF EXISTS $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}};
@@ -49,10 +53,6 @@ persist-project-repo-trees tableName='gitlab_project_repo_assets' options="exten
     CREATE_TABLE_SQL
     cat "{{repoTreesFileName}}" | {{psqlCmd}} -c "COPY $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}} FROM STDIN CSV HEADER"
     echo "Inserted `{{psqlCmd}} -c "select count(*) from $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}}"` rows"
-
-validate-project-repo-trees-csv fileName="project-repo-trees.csv":
-    #!/usr/bin/env bash
-    datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
 
 # Show all dependencies
 doctor:

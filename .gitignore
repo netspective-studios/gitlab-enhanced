@@ -2,4 +2,4 @@
 .env
 
 # this will be inserted into the database, no need to track it
-project-repo-trees.csv
+gitlab-project-repo-assets.csv
