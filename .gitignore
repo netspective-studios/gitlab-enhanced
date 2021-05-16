@@ -1,0 +1,5 @@
+# .env will contain usernames and passwords so don't let Git track it
+.env
+
+# this will be inserted into the database, no need to track it
+project-repo-trees.csv
