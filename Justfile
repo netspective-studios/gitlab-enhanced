@@ -1,4 +1,6 @@
 gitLabReposHome := "/var/lib/docker/volumes/gl-infra-experimental-medigy-com_data/_data/git-data/repositories"
+gitLabCanonicalConfigEnvFile := "gitlab-canonical.env"
+gitlabProjectRepoAssetsStorageEnvFile := "gitlab-project-repo-assets.env"
 
 # None of the `psql` commands below have any credentials supplied because the .env
 # file is supposed to supply them (.env is read by `just` and converted to env vars).
@@ -8,29 +10,43 @@ psqlCmd := "psql -P pager=off -qtAX"
 context := "unknown"
 
 # Inspect SQLa execution environment
-inspect:
-    @echo "Context: {{context}}"
-    @echo "psql: {{psqlCmd}}"
-    @echo "GitLab schema: $SQLACTL_GITLAB_CANONICAL_SCHEMA_NAME (from .env)"
-    @echo "Enhanced schema: $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME (from .env)"
+inspect: _validate-env
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "Context: {{context}}"
+    echo "psql: {{psqlCmd}} (will use PG* env variables from *.env for credentials)"
+    set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
+    echo "GitLab schema: $SQLACTL_GITLAB_CANONICAL_SCHEMA_NAME (from {{gitlabProjectRepoAssetsStorageEnvFile}})"
+    echo "GitLab Enhanced schema: $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME (from {{gitLabCanonicalConfigEnvFile}})"
+    set -o allexport && source {{gitlabProjectRepoAssetsStorageEnvFile}} && set +o allexport
+    echo "Project Repo Assets schema: $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME (from {{gitlabProjectRepoAssetsStorageEnvFile}})"
 
 # Drop $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME schema, interpolate and generate SQL then load it into database $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME schema supplied by .env
 db-deploy-clean: _validate-context _validate-env
     #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
     {{psqlCmd}} -c "drop schema if exists $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME cascade";
     just context={{context}} db-deploy
 
 # Interpolate and generate SQL then load it into database $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME schema supplied by .env
 db-deploy: _validate-context _validate-env
     #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
     deno run -A --unstable sqlactl.ts interpolate --context={{context}} --verbose --git-status | {{psqlCmd}}
 
 # Interpolate and generate SQL to STDOUT
 interpolate-sql: _validate-context
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
     deno run -A --unstable sqlactl.ts interpolate --context={{context}} --verbose --git-status
 
 discover-gitlab-project-repo-assets gitLabGroup options="extended-attrs,content" destFileName="gitlab-project-repo-assets.csv": _validate-env _validate-repos-home
     #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
     rm -f '{{destFileName}}'
     perl gitlab-project-repos-transform.pl csv-header '{{options}}' '{{destFileName}}'
     {{psqlCmd}} -AF ' ' <<REPOS_SQL | xargs -P`nproc` -n6 perl gitlab-project-repos-transform.pl
@@ -41,25 +57,28 @@ discover-gitlab-project-repo-assets gitLabGroup options="extended-attrs,content"
 
 validate-gitlab-project-repo-assets-csv fileName="gitlab-project-repo-assets.csv":
     #!/usr/bin/env bash
+    set -euo pipefail
     datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
 
-persist-gitlab-project-repo-assets tableName='gitlab_project_repo_assets' options="extended-attrs,content" repoTreesFileName="gitlab-project-repo-assets.csv": _validate-env _validate-repos-home validate-gitlab-project-repo-assets-csv
+persist-gitlab-project-repo-assets tableName='gitlab_project_repo_assets' options="extended-attrs,content" repoTreesFileName="gitlab-project-repo-assets.csv": _validate-env validate-gitlab-project-repo-assets-csv
     #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitlabProjectRepoAssetsStorageEnvFile}} && set +o allexport
     {{psqlCmd}} <<CREATE_TABLE_SQL
-        DROP TABLE IF EXISTS $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}};
-        CREATE TABLE $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}}(
+        DROP TABLE IF EXISTS $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}};
+        CREATE TABLE $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}(
             `perl gitlab-project-repos-transform.pl create-table-clauses '{{options}}'`
         );        
     CREATE_TABLE_SQL
-    cat "{{repoTreesFileName}}" | {{psqlCmd}} -c "COPY $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}} FROM STDIN CSV HEADER"
-    echo "Inserted `{{psqlCmd}} -c "select count(*) from $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.{{tableName}}"` rows"
+    cat "{{repoTreesFileName}}" | {{psqlCmd}} -c "COPY $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}} FROM STDIN CSV HEADER"
+    echo "Inserted `{{psqlCmd}} -c "select count(*) from $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}"` rows into $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}"
 
 # Show all dependencies
 doctor:
     #!/usr/bin/env bash
+    set -euo pipefail
     just --version
     deno --version
-    {{psqlCmd}} -c "select version()"
     psql -V
     perl --version | sed -n '2p'
     datamash --version | sed -n '1p'
@@ -95,8 +114,12 @@ _validate-context:
 _validate-env:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ ! -f .env ]]; then
-        echo ".env does not exist, run 'cp env.example .env' and add credentials"
+    if [[ ! -f {{gitLabCanonicalConfigEnvFile}} ]]; then
+        echo "{{gitLabCanonicalConfigEnvFile}} does not exist, run 'cp {{gitLabCanonicalConfigEnvFile}}.example {{gitLabCanonicalConfigEnvFile}}' and add credentials"
+        exit 1
+    fi
+    if [[ ! -f {{gitlabProjectRepoAssetsStorageEnvFile}} ]]; then
+        echo "{{gitLabCanonicalConfigEnvFile}} does not exist, run 'cp {{gitlabProjectRepoAssetsStorageEnvFile}}.example {{gitlabProjectRepoAssetsStorageEnvFile}}' and add credentials"
         exit 1
     fi
 

@@ -41,7 +41,13 @@ if (import.meta.main) {
   // so that we are sure that all the variables we need are supplied or we error
   // out. `export` is set to true so that the variables are put into Deno.env().
   // Env vars will be available using Deno.env.get("*").
-  dotenv.config({ safe: true, export: true });
+  const envFileName = "gitlab-canonical.env";
+  dotenv.config({
+    safe: true,
+    export: true,
+    path: envFileName,
+    example: `${envFileName}.example`,
+  });
   const cliEC = dcpCLI.cliArgs({ calledFromMetaURL: import.meta.url });
   await dcpCLI.CLI(new Controller(cliEC, dcpCLI.cliControllerOptions(cliEC)));
 }

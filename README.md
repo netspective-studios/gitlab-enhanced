@@ -18,7 +18,20 @@ just doctor
 
 ## One-time Setup
 
-Copy `.env.example` to `.env` and fill out GitLab production database information. The `.env` file is included in `.gitignore` and will not be git-tracked. All environment variables in `.env` will be availble, automatically, to the `just` targets documented below. 
+```bash
+git clone https://github.com/netspective-studios/gitlab-enhanced.git 
+cd gitlab-enhanced
+```
+
+Then:
+
+* Copy `gitlab-canonical.env.example` to `gitlab-canonical.env` and fill out GitLab database information. The `gitlab-canonical.env` file is included in `.gitignore` and will not be git-tracked. All environment variables in `gitlab-canonical.env` will be available, automatically, to the `just` targets documented below. These two environment variables are important and **they should not share the same value** -- the `just context=production db-deploy-clean` target will destroy any existing `$SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME` schema so be sure to separate the schemas as shown by default otherwise you *could accidentally delete your production GitLab database*.
+  * `SQLACTL_GITLAB_CANONICAL_SCHEMA_NAME=public`
+  * `SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME=stateless_enhance_service_gitlab`
+
+* Copy `gitlab-project-repo-assets.env.example` to `gitlab-project-repo-assets.env` and fill out database information for the destination of the `gitlab_project_repo_assets` table. The `gitlab-canonical.env` file is included in `.gitignore` and will not be git-tracked. All environment variables in `gitlab-canonical.env` will be available, automatically, to the `just` targets documented below.
+
+If the `gitlab_project_repo_assets` table will be in the same database/schemas defined by `gitlab-canonical.env` then `gitlab-project-repo-assets.env` could just have the same database credentials. However, if the `gitlab_project_repo_assets` table will be in a different database then the contents of `gitlab-canonical.env` then `gitlab-project-repo-assets.env` should point to their respective databases.
 
 ## Creating SQL objects
 
@@ -51,7 +64,7 @@ The `just db-deploy` target deploys convenience PostgreSQL views which can then 
 * `discover-gitlab-project-repo-assets`
 * `persist-gitlab-project-repo-assets`
 
-### How to use mirror bare repo content into database
+### How to mirror bare repo content into database
 
 ```bash
 just discover-gitlab-project-repo-assets 8 

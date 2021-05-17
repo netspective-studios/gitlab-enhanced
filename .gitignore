@@ -1,5 +1,6 @@
-# .env will contain usernames and passwords so don't let Git track it
-.env
+# *.env will contain usernames and passwords so don't let Git track it
+# *.env.example is tracked to provide examples to copy/paste from
+*.env
 
 # this will be inserted into the database, no need to track it
 gitlab-project-repo-assets.csv
