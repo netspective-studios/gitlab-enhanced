@@ -48,7 +48,7 @@ export function initSQL(
       create or replace view ${glQPView} as
         select namespace.level as namespace_level,
                 namespace.qualified_name as qualified_namespace_name,
-                namespace.qualified_name as qualified_namespace_path,
+                namespace.qualified_path as qualified_namespace_path,
                 namespace.level+1 as project_level,
                 project.*,
                 namespace.qualified_path || '/' || project.path as qualified_project_path,
