@@ -96,3 +96,16 @@ just persist-gitlab-project-repo-assets
 *  drops the `gitlab_project_repo_assets` table
 *  creates the `gitlab_project_repo_assets` table
 *  imports the CSV file into the `gitlab_project_repo_assets` table
+
+Since the repo contents are now just SQL, everything's a query away:
+
+```sql
+select gl_project_id, 
+       git_author_date, 
+       git_file_size_bytes, 
+       convert_from(decode(git_file_content_base64, 'base64'), 'UTF8')::jsonb as lhc_form
+  from stateless_enhance_service_gitlab.gitlab_project_repo_assets
+ where git_file_name = 'offering-profile.lhc-form.json'
+   and git_branch = 'draft'
+```
+
