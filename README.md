@@ -108,4 +108,3 @@ select gl_project_id,
  where git_file_name = 'offering-profile.lhc-form.json'
    and git_branch = 'draft'
 ```
-
