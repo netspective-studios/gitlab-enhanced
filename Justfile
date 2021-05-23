@@ -43,35 +43,80 @@ interpolate-sql: _validate-context
     set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
     deno run -A --unstable sqlactl.ts interpolate --context={{context}} --verbose --git-status
 
-discover-gitlab-project-repo-assets gitLabGroup options="extended-attrs,content" destFileName="gitlab-project-repo-assets.csv": _validate-env _validate-repos-home
+discover-gitlab-project-repo-assets gitLabGroup destFileName="gitlab-project-repo-assets.csv": _validate-env _validate-repos-home
     #!/usr/bin/env bash
     set -euo pipefail
     set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
-    rm -f '{{destFileName}}'
-    perl gitlab-project-repos-transform.pl csv-header '{{options}}' '{{destFileName}}'
-    {{psqlCmd}} -AF ' ' <<REPOS_SQL | xargs -P`nproc` -n6 perl gitlab-project-repos-transform.pl
-        select row_number() OVER () as row_num, '{{options}},is-parallel-op' as options, '{{destFileName}}' as output_dest, 
-               (qpr).id, (qpr).project_repo_id, git_dir_abs_path
+    rm -f "{{destFileName}}"
+    perl gitlab-project-repo-assets.pl csv-header 'log' "{{destFileName}}"
+    printf "Running git ls-tree + log in all branches of all repos: {{destFileName}}..."
+    HOST=`hostname`
+    IPADDR=`hostname -I | awk '{print $1}'`
+    {{psqlCmd}} -AF ' ' <<REPOS_SQL | xargs -P`nproc` -n8 perl gitlab-project-repo-assets.pl
+        select row_number() OVER () as row_num, 'log,is-parallel-op' as options, '{{destFileName}}' as output_dest, 
+               (qpr).id, (qpr).project_repo_id, '$HOST', '$IPADDR', git_dir_abs_path
           from $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.gitlab_qualified_project_repos_bare('{{gitLabReposHome}}', {{gitLabGroup}})
     REPOS_SQL
+    printf "done\n"
 
 validate-gitlab-project-repo-assets-csv fileName="gitlab-project-repo-assets.csv":
     #!/usr/bin/env bash
     set -euo pipefail
     datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
 
-persist-gitlab-project-repo-assets tableName='gitlab_project_repo_assets' options="extended-attrs,content" repoTreesFileName="gitlab-project-repo-assets.csv": _validate-env validate-gitlab-project-repo-assets-csv
+persist-gitlab-project-repo-assets tableName='gitlab_project_repo_assets' repoTreesFileName="gitlab-project-repo-assets.csv": _validate-env validate-gitlab-project-repo-assets-csv
     #!/usr/bin/env bash
     set -euo pipefail
     set -o allexport && source {{gitlabProjectRepoAssetsStorageEnvFile}} && set +o allexport
     {{psqlCmd}} <<CREATE_TABLE_SQL
         DROP TABLE IF EXISTS $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}};
         CREATE TABLE $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}(
-            `perl gitlab-project-repos-transform.pl create-table-clauses '{{options}}'`
+            `perl gitlab-project-repo-assets.pl create-table-clauses 'log'`
         );        
     CREATE_TABLE_SQL
     cat "{{repoTreesFileName}}" | {{psqlCmd}} -c "COPY $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}} FROM STDIN CSV HEADER"
     echo "Inserted `{{psqlCmd}} -c "select count(*) from $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}"` rows into $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}"
+
+discover-gitlab-project-repo-assets-content tableName='gitlab_project_repo_assets_content' destFileName="gitlab-project-repo-assets-content.csv" assetsTableName='gitlab_project_repo_assets': _validate-env
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitlabProjectRepoAssetsStorageEnvFile}} && set +o allexport
+    printf "Running git show to get content of all rows in $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{assetsTableName}}..."
+    rm -f "{{destFileName}}"
+    perl gitlab-project-repo-assets-content.pl csv-header '' "{{destFileName}}"   
+    {{psqlCmd}} -AF ' ' <<UNIQUE_GIT_OBJECTS_SQL | xargs -P`nproc` -n7 perl gitlab-project-repo-assets-content.pl
+        -- assuming persist-gitlab-project-repo-assets has been used to create gitlab_project_repo_assets, 
+        -- find out unique object IDs and get their content from the first gl_gitaly_bare_repo_path the content is found in
+        SELECT row_number() OVER () as row_num, 'is-parallel-op' as options, '{{destFileName}}' as output_dest, 
+               MIN(gl_gitaly_bare_repo_path), git_object_id, concat('"', git_file_name, '"'), git_file_size_bytes
+          FROM $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{assetsTableName}}
+      GROUP BY git_object_id, git_file_size_bytes, git_file_name
+    UNIQUE_GIT_OBJECTS_SQL
+    printf "done\n"
+
+validate-gitlab-project-repo-assets-content-csv fileName="gitlab-project-repo-assets-content.csv":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
+
+persist-gitlab-project-repo-assets-content tableName='gitlab_project_repo_assets_content' contentFileName="gitlab-project-repo-assets-content.csv": _validate-env validate-gitlab-project-repo-assets-content-csv
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitlabProjectRepoAssetsStorageEnvFile}} && set +o allexport
+    {{psqlCmd}} <<CREATE_TABLE_SQL
+        DROP TABLE IF EXISTS $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}};
+        CREATE TABLE $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}(
+            `perl gitlab-project-repo-assets-content.pl create-table-clauses ''`
+        );        
+    CREATE_TABLE_SQL
+    cat "{{contentFileName}}" | {{psqlCmd}} -c "COPY $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}} FROM STDIN CSV HEADER"
+    echo "Inserted `{{psqlCmd}} -c "select count(*) from $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}"` rows into $SQLACTL_GITLAB_PROJECT_REPO_ASSETS_SCHEMA_NAME.{{tableName}}"
+
+discover-persist-gitlab-project-repo-assets-content gitLabGroup: _validate-env
+    @just discover-gitlab-project-repo-assets {{gitLabGroup}}
+    @just persist-gitlab-project-repo-assets
+    @just discover-gitlab-project-repo-assets-content
+    @just persist-gitlab-project-repo-assets-content
 
 # Show all dependencies
 doctor:

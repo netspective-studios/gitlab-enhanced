@@ -5,12 +5,14 @@ use Env;
 use MIME::Base64;
 use Fcntl ':flock';
 use Scalar::Util qw(looks_like_number);
+use POSIX qw(strftime);
 
-my ($rowNum, $options, $outputDest, $projectId, $repoId, $gitalyBareRepoPath) = @ARGV;
+# This script is expected to be called once per record (usually via xargs)
+my ($rowNum, $options, $outputDest, $projectId, $repoId, $gitalyBareRepoHost, $gitalyBareRepoHostIPAddr, $gitalyBareRepoPath) = @ARGV;
 $options ||= '';
 
-my $includeExtendedAttrs = (index($options, 'extended-attrs') != -1);
-my $includeContent = (index($options, "content") != -1);
+my $includeLog = (index($options, 'log') != -1);
+my $includeContent = (index($options, 'content') != -1);
 my $isParallelOp = (index($options, "is-parallel-op") != -1);
 
 my $customDest;
@@ -27,16 +29,19 @@ if($outputDest && $outputDest ne 'STDOUT') {
 
 if($rowNum eq 'csv-header' || $rowNum eq 'create-table-clauses' || $rowNum eq 'markdown') {
     my @header = (
-        ['index', 'integer', 'abitrary row number or row index for informational purposes'], 
+        ['discovered_at', 'timestamptz', 'Timestamp of when the discovery of this row occurred'], 
         ['gl_project_id', 'integer', 'GitLab project ID acquired from [GitLab].projects.id table'], 
         ['gl_project_repo_id', 'integer', 'GitLab project repo ID acquired from [GitLab].project_repositories.id table'], 
+        ['gl_gitaly_bare_repo_host', 'text', 'GitLab project Gitaly bare repo path host'],
+        ['gl_gitaly_bare_repo_host_ip_addr', 'text', 'GitLab project Gitaly bare repo path host'],
+        ['gl_gitaly_bare_repo_path', 'text', 'GitLab project Gitaly bare repo path'],
         ['git_branch', 'text', 'Git branch acquired from bare Git repo using git for-each-ref command'], 
         ['git_file_mode', 'text', 'Git file mode acquired from bare Git repo using git ls-tree -r {branch} command'], 
         ['git_asset_type', 'text', 'Git asset type (e.g. blob) acquired from bare Git repo using git ls-tree -r {branch} command'], 
         ['git_object_id', 'text', 'Git object (e.g. blob) ID acquired from bare Git repo using git ls-tree -r {branch} command'], 
         ['git_file_size_bytes', 'integer', 'Git file size in bytes acquired from bare Git repo using git ls-tree -r {branch} command'], 
         ['git_file_name', 'text', 'Git file name acquired from bare Git repo using git ls-tree -r {branch} command']);
-    if($includeExtendedAttrs) {
+    if($includeLog) {
         push(@header, 
             ['git_commit_hash', 'text', 'Git file commit hash acquired from bare Git repo using git log -1 {branch} {git_file_name} command'],
             ['git_author_date', 'timestamptz', 'Git file author date acquired from bare Git repo using git log -1 {branch} {git_file_name} command'], 
@@ -78,14 +83,14 @@ while(<$branchesCmd>) {
     while(<$traverseCmd>) {
         chomp; 
         my @row = split(/[ \t]+/);
-        if($includeExtendedAttrs) {
+        if($includeLog) {
             open(my $extendedAttrsCmd, '-|', 'sudo', 'git', '--no-pager', '--git-dir', $gitalyBareRepoPath, 'log', '-1', '--pretty=%H||%aI||%cI||%aN||%ae||%cN||%ce||%s', $branch, '--', $row[-1]);
             chomp(my $extended = <$extendedAttrsCmd>);
             push(@row, split(/\|\|/, $extended));
             close($extendedAttrsCmd);
         }
         # prepare CSV-style output with double-quotes to escape , in any text column
-        my @result = ($rowNum, $projectId, $repoId, $branch, map { /,/ ? qq("$_") : $_ } @row);
+        my @result = (strftime('%Y-%m-%dT%H:%M:%SZ', gmtime()), $projectId, $repoId, $gitalyBareRepoHost, $gitalyBareRepoHostIPAddr, $gitalyBareRepoPath, $branch, map { /,/ ? qq("$_") : $_ } @row);
         if($includeContent) {
             my $content = `sudo git --no-pager --git-dir $gitalyBareRepoPath show -r $row[2]`;
             push(@result, $content ? encode_base64($content, '') : '');

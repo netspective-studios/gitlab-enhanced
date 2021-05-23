@@ -2,5 +2,5 @@
 # *.env.example is tracked to provide examples to copy/paste from
 *.env
 
-# this will be inserted into the database, no need to track it
-gitlab-project-repo-assets.csv
+# CSV files are imported into the database and shouldn't be tracked
+*.csv
