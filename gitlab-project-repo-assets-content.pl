@@ -26,10 +26,10 @@ if($outputDest && $outputDest ne 'STDOUT') {
 if($rowNum eq 'csv-header' || $rowNum eq 'create-table-clauses' || $rowNum eq 'markdown') {
     my @header = (
         ['discovered_at', 'timestamptz', 'Timestamp of when the discovery of this row occurred'], 
-        ['git_object_id', 'text', 'Git object (e.g. blob) ID acquired from bare Git repo using git ls-tree -r {branch} command'], 
-        ['git_file_name', 'text', 'Git file name acquired from bare Git repo using git ls-tree -r {branch} command'],
-        ['git_file_size_bytes', 'integer', 'Git file size in bytes acquired from bare Git repo using git ls-tree -r {branch} command'], 
-        ['git_file_content_base64', 'text', 'Git file commit content, in Base64 format, from bare Git repo using git log -1 {branch} {git_file_name} command']);
+        ['git_object_id', 'text', 'Git object (e.g. blob) ID acquired from bare Git repo'], 
+        ['git_file_name', 'text', 'Git file name acquired from bare Git repo'],
+        ['git_file_size_bytes', 'integer', 'Git file size in bytes acquired from bare Git repo'], 
+        ['git_file_content_base64', 'text', 'Git file commit content, in Base64 format, from bare Git repo using git show -r {git_object_id}']);
     flock($outputFH, LOCK_EX) or die "Could not lock '$outputDest' for parallel op: $!" if $customDest && $isParallelOp;
     if($rowNum eq 'csv-header') {
         print $outputFH join(',', map { $_->[0] } @header) . "\n";

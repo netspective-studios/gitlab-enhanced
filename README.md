@@ -142,13 +142,13 @@ select *
 * Git objects IDs are considered "globally unique" so we can have the same file content used across Git repos stored only once. 
 * There might be some long-term issues with content conflicts that should be considered. Read [SHA\-1 collision detection on GitHub\.com](https://github.blog/2017-03-20-sha-1-collision-detection-on-github-com/) and [10\.2 Git Internals \- Git Objects](https://git-scm.com/book/en/v2/Git-Internals-Git-Objects).
 
-| Column                    | Type        | Purpose                                                                                                         |
-| ------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------- |
-| `discovered_at`           | timestamptz | Timestamp of when the discovery of this row occurred                                                            |
-| `git_object_id`           | text        | Git object (e.g. blob) ID acquired from bare Git repo using git ls-tree -r {branch} command                     |
-| `git_file_name`           | text        | Git file name acquired from bare Git repo using git ls-tree -r {branch} command                                 |
-| `git_file_size_bytes`     | integer     | Git file size in bytes acquired from bare Git repo using git ls-tree -r {branch} command                        |
-| `git_file_content_base64` | text        | Git file commit content, in Base64 format, from bare Git repo using git log -1 {branch} {git_file_name} command |
+| Column                    | Type        | Purpose                                                                                         |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------- |
+| `discovered_at`           | timestamptz | Timestamp of when the discovery of this row occurred                                            |
+| `git_object_id`           | text        | Git object (e.g. blob) ID acquired from bare Git repo                                           |
+| `git_file_name`           | text        | Git file name acquired from bare Git repo                                                       |
+| `git_file_size_bytes`     | integer     | Git file size in bytes acquired from bare Git repo                                              |
+| `git_file_content_base64` | text        | Git file commit content, in Base64 format, from bare Git repo using git show -r {git_object_id} |
 
 #### What `persist-gitlab-project-repo-assets-content` does
 
