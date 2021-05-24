@@ -118,6 +118,22 @@ discover-persist-gitlab-project-repo-assets-content gitLabGroup: _validate-env
     @just discover-gitlab-project-repo-assets-content
     @just persist-gitlab-project-repo-assets-content
 
+clone-gitlab-project-repos gitLabGroup destHome: _validate-env _validate-repos-home
+    #!/usr/bin/env bash
+    set -euo pipefail
+    set -o allexport && source {{gitLabCanonicalConfigEnvFile}} && set +o allexport
+    mkdir -p "{{destHome}}"
+    printf "Cloning shallow branches of all repos in {{destHome}}..."
+    {{psqlCmd}} -AF ' ' <<REPOS_SQL | xargs -P`nproc` -n7 perl gitlab-project-repos-clone.pl
+        select (qpr).id, (qpr).project_repo_id, git_dir_abs_path as gitaly_bare_repo_path, 
+               concat('file://', git_dir_abs_path) as clone_url,
+               (qpr).qualified_project_path,
+               concat('{{destHome}}/by-branch-project-path/BRANCH/', (qpr).qualified_project_path) as canonical_dest_path, -- /BRANCH/ will be replaced in Perl script
+               concat('{{destHome}}/by-branch-project-id/BRANCH/', (qpr).id) as project_id_dest_symlink_path -- /BRANCH/ will be replaced in Perl script
+          from $SQLACTL_GITLAB_ENHANCE_SCHEMA_NAME.gitlab_qualified_project_repos_bare('{{gitLabReposHome}}', {{gitLabGroup}})
+    REPOS_SQL
+    printf "done\n"
+
 # Show all dependencies
 doctor:
     #!/usr/bin/env bash
