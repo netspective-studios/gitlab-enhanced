@@ -1,6 +1,7 @@
 gitLabReposHome := "/var/lib/docker/volumes/gl-infra-experimental-medigy-com_data/_data/git-data/repositories"
 gitLabCanonicalConfigEnvFile := "gitlab-canonical.env"
 gitlabProjectRepoAssetsStorageEnvFile := "gitlab-project-repo-assets.env"
+miller := "./mlr"
 
 # None of the `psql` commands below have any credentials supplied because the .env
 # file is supposed to supply them (.env is read by `just` and converted to env vars).
@@ -62,7 +63,7 @@ discover-gitlab-project-repo-assets gitLabGroup destFileName="gitlab-project-rep
 validate-gitlab-project-repo-assets-csv fileName="gitlab-project-repo-assets.csv":
     #!/usr/bin/env bash
     set -euo pipefail
-    datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
+    {{miller}} --csv check "{{fileName}}" || exit -1
 
 persist-gitlab-project-repo-assets tableName='gitlab_project_repo_assets' repoTreesFileName="gitlab-project-repo-assets.csv": _validate-env validate-gitlab-project-repo-assets-csv
     #!/usr/bin/env bash
@@ -97,7 +98,7 @@ discover-gitlab-project-repo-assets-content tableName='gitlab_project_repo_asset
 validate-gitlab-project-repo-assets-content-csv fileName="gitlab-project-repo-assets-content.csv":
     #!/usr/bin/env bash
     set -euo pipefail
-    datamash check --header-in --field-separator=, < "{{fileName}}" || exit -1
+    {{miller}} --csv check "{{fileName}}" || exit -1
 
 persist-gitlab-project-repo-assets-content tableName='gitlab_project_repo_assets_content' contentFileName="gitlab-project-repo-assets-content.csv": _validate-env validate-gitlab-project-repo-assets-content-csv
     #!/usr/bin/env bash
@@ -142,7 +143,7 @@ doctor:
     deno --version
     psql -V
     perl --version | sed -n '2p'
-    datamash --version | sed -n '1p'
+    {{miller}} --version
     echo "{{gitLabReposHome}} is `sudo test -d {{gitLabReposHome}}/@hashed && echo 'valid for sudoers' || echo 'does not exist'`"
 
 _validate-context-value-equals value:

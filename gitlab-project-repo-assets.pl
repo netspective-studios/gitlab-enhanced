@@ -82,9 +82,12 @@ while(<$branchesCmd>) {
     open(my $traverseCmd, '-|', 'sudo', 'git', '--no-pager', '--git-dir', $gitalyBareRepoPath, 'ls-tree', '-r', $branch, '--long');
     while(<$traverseCmd>) {
         chomp; 
-        my @row = split(/[ \t]+/);
+        # git ls-dir returns: <mode> SP <type> SP <object> SP <object size> TAB <file>
+        my ($meta, $fileName) = split(/\t/);
+        my @row = split(/ +/, $meta);
+        push(@row, $fileName); # now row is mode,type,objectId,objectSize,fileName
         if($includeLog) {
-            open(my $extendedAttrsCmd, '-|', 'sudo', 'git', '--no-pager', '--git-dir', $gitalyBareRepoPath, 'log', '-1', '--pretty=%H||%aI||%cI||%aN||%ae||%cN||%ce||%s', $branch, '--', $row[-1]);
+            open(my $extendedAttrsCmd, '-|', 'sudo', 'git', '--no-pager', '--git-dir', $gitalyBareRepoPath, 'log', '-1', '--pretty=%H||%aI||%cI||%aN||%ae||%cN||%ce||%s', $branch, '--', $fileName);
             chomp(my $extended = <$extendedAttrsCmd>);
             push(@row, split(/\|\|/, $extended));
             close($extendedAttrsCmd);
