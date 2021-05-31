@@ -8,7 +8,7 @@ This library uses [PgDCP SQLa](https://github.com/netspective-studios/PgDCP) to 
 * `Deno`
 * `Perl`
 * PostgreSQL client
-* `datamash` (for testing generated CSVs)
+* `miller` (for testing generated CSVs)
 
 To check if your dependencies are properly installed, run:
 
@@ -87,11 +87,11 @@ just persist-gitlab-project-repo-assets-content
 * `just discover-gitlab-project-repo-assets 8` uses PostgreSQL convenience views to generate a CSV file (`gitlab-project-repo-assets.csv`) of all the Gitaly bare Git repositories under GitLab Namespace ID '8' (any GitLab group ID may be passed in).
   * The generated CSV file contains the latest commit information (only meta-data, not content) for each branch of each GitLab project repo.
   * On a 6-core i5 processor with direct access to the GitLab bare Git repos this take around 90 seconds for about 3,500 small project repos (assuming about 37,000 cumulative files included in the 3,500 or so Git repos).
-* `just persist-gitlab-project-repo-assets` validates `gitlab-project-repo-assets.csv` using GNU `datamash` and then inserts all rows in `gitlab-project-repo-assets.csv` into the `gitlab_project_repo_assets` PostgreSQL table using the `COPY FROM` SQL command. This should take less than 30 seconds to complete if the database is on the same server as the CSV file.
+* `just persist-gitlab-project-repo-assets` validates `gitlab-project-repo-assets.csv` using `miller` and then inserts all rows in `gitlab-project-repo-assets.csv` into the `gitlab_project_repo_assets` PostgreSQL table using the `COPY FROM` SQL command. This should take less than 30 seconds to complete if the database is on the same server as the CSV file.
 * `just discover-gitlab-project-repo-assets-content` uses rows in the `gitlab_project_repo_assets` PostgreSQL table to generate a CSV file (`gitlab-project-repo-assets-content.csv`) which contains the name, size, and base64-encoded content of each unique Git object in all the files discovered through `just discover-gitlab-project-repo-assets 8`. 
   * The generated CSV file contains the Git Object ID, file name, file size in bytes, and base64-encoded content for each unique Git object (uniqueness is determined by Git object ID, git file name, and git file size).
   * On a 6-core i5 processor with direct access to the GitLab bare Git repos this take around 45 seconds for about 9,000 small-ish files.
-* `just persist-gitlab-project-repo-assets-content` validates `gitlab-project-repo-assets-content.csv` using GNU `datamash` and then inserts all rows in `gitlab-project-repo-assets-content.csv` into the `gitlab_project_repo_assets_content` PostgreSQL table using the `COPY FROM` SQL command. This should take less than 10 seconds to complete if the database is on the same server as the CSV file.
+* `just persist-gitlab-project-repo-assets-content` validates `gitlab-project-repo-assets-content.csv` using `miller` and then inserts all rows in `gitlab-project-repo-assets-content.csv` into the `gitlab_project_repo_assets_content` PostgreSQL table using the `COPY FROM` SQL command. This should take less than 10 seconds to complete if the database is on the same server as the CSV file.
 
 #### What `discover-gitlab-project-repo-assets` does
 
@@ -152,7 +152,7 @@ select *
 
 #### What `persist-gitlab-project-repo-assets-content` does
 
-* `just persist-gitlab-project-repo-assets-content` validates `gitlab-project-repo-assets-content.csv` using GNU `datamash` and then inserts all rows in `gitlab-project-repo-assets-content.csv` into the `gitlab_project_repo_assets_content` PostgreSQL table using the `COPY FROM` SQL command. 
+* `just persist-gitlab-project-repo-assets-content` validates `gitlab-project-repo-assets-content.csv` using `miller` and then inserts all rows in `gitlab-project-repo-assets-content.csv` into the `gitlab_project_repo_assets_content` PostgreSQL table using the `COPY FROM` SQL command. 
 
 `persist-gitlab-project-repo-assets-content` uses the CSV file created by `discover-gitlab-project-repo-assets-content` target and:
 *  drops the `gitlab_project_repo_assets_content` table
