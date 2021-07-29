@@ -125,6 +125,14 @@ export function initSQL(
       END
       $func$ LANGUAGE plpgsql;
       comment on function ${glQPRBareFn}(text, integer) is 'All registered GitLab projects under a specific namespace ID with namespace-qualified names, logical paths, and absolute paths to Gitaly bare Git repositories';
+      -- Grant permission to gitlab user
+      GRANT USAGE ON SCHEMA ${state.schema.name} to gitlab_read_only_user;
+      GRANT SELECT ON ALL TABLES IN SCHEMA ${state.schema.name} to gitlab_read_only_user;
+      GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${state.schema.name} to gitlab_read_only_user;
+      GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA ${state.schema.name} TO gitlab_read_only_user;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA ${state.schema.name} GRANT SELECT ON TABLES TO gitlab_read_only_user;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA ${state.schema.name} GRANT SELECT ON SEQUENCES TO gitlab_read_only_user;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA ${state.schema.name} GRANT EXECUTE ON FUNCTIONS TO gitlab_read_only_user;
 
       -- qualified references observed in this template:
       -- ${state.qualifiedReferencesObserved.referencesObserved.map(r => `* ${r}`).join(`\n    -- `)}
